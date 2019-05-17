@@ -3,8 +3,7 @@
 //
 
 #import <Foundation/Foundation.h>
-
-@class FlutterMethodCall;
+#import <Flutter/Flutter.h>
 
 
 @interface PluginScaffoldHelper : NSObject
@@ -12,9 +11,8 @@
          onCatch:(void (^)(id))onCatch
           onElse:(void (^)(void))onElse;
 
-+ (bool)invokeMethod:(NSString *)name
-            instance:(id)instance
++ (bool)invokeMethod:(id)instance
                 call:(FlutterMethodCall *)call
-              result:(FlutterResult)result
+                 res:(FlutterResult)res
              onCatch:(void (^)(id))onCatch;
 @end

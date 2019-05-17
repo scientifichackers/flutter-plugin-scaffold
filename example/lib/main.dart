@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-final _platform = MethodChannel("myFancyChannel");
-
 void main() => runApp(MyApp());
 
 class MyApp extends StatefulWidget {
@@ -13,18 +11,28 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String result;
+  static final platform = MethodChannel("myFancyChannel");
+
+  var isWaiting = true;
+  var returnValue;
 
   Future<void> doLoad() async {
-    final value = await _platform.invokeMethod("myFancyMethod");
-    if (!mounted) return;
-    setState(() {
-      result = value;
-    });
+    var value;
+    try {
+      value = await platform.invokeMethod("myFancyMethod");
+    } catch (e) {
+      value = e;
+    } finally {
+      if (mounted) {
+        setState(() {
+          isWaiting = false;
+          returnValue = value;
+        });
+      }
+    }
 
-    _platform.invokeMethod("myBrokenMethod");
-
-    _platform.invokeMethod("myBrokenCallbackMethod");
+    platform.invokeMethod("myBrokenMethod");
+    platform.invokeMethod("myBrokenCallbackMethod");
   }
 
   @override
@@ -38,10 +46,14 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Flutter MethodCallDispatcher'),
+          title: const Text('Flutter Plugin Scaffold'),
         ),
         body: Center(
-          child: Text(result ?? "Waiting for reply..."),
+          child: Text(
+            isWaiting
+                ? "Waiting for reply..."
+                : returnValue?.toString() ?? "null",
+          ),
         ),
       ),
     );
