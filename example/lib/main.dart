@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:plugin_scaffold/plugin_scaffold.dart';
+
+final _platform = MethodChannel("myFancyChannel");
 
 void main() => runApp(MyApp());
 
@@ -12,32 +13,24 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+  String result;
+
+  Future<void> doLoad() async {
+    final value = await _platform.invokeMethod("myFancyMethod");
+    if (!mounted) return;
+    setState(() {
+      result = value;
+    });
+
+    _platform.invokeMethod("myBrokenMethod");
+
+    _platform.invokeMethod("myBrokenCallbackMethod");
+  }
 
   @override
   void initState() {
     super.initState();
-    initPlatformState();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    try {
-      platformVersion = await PluginScaffold.platformVersion;
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
+    doLoad();
   }
 
   @override
@@ -45,10 +38,10 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Plugin example app'),
+          title: const Text('Flutter MethodCallDispatcher'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: Text(result ?? "Waiting for reply..."),
         ),
       ),
     );
