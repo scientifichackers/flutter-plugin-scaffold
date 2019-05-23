@@ -1,4 +1,4 @@
-[![Sponsor](https://img.shields.io/badge/Sponsor-jaaga_labs-red.svg?style=for-the-badge)](https://www.jaaga.in/labs) [![Pub](https://img.shields.io/pub/v/method_call_dispatcher.svg?style=for-the-badge)](https://pub.dartlang.org/packages/method_call_dispatcher)
+[![Sponsor](https://img.shields.io/badge/Sponsor-jaaga_labs-red.svg?style=for-the-badge)](https://www.jaaga.in/labs) [![Pub](https://img.shields.io/pub/v/plugin_scaffold.svg?style=for-the-badge)](https://pub.dartlang.org/packages/plugin_scaffold)
 
 # Flutter Plugin Scaffold
 
