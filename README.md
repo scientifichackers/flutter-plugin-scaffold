@@ -26,7 +26,7 @@ channel.setMethodCallHandler { call, result ->
 Into this beauty:-
 
 ```kotlin
-import com.pycampers.method_call_dispatcher.MethodCallDispatcher
+import com.pycampers.plugin_scaffold.createPluginScaffold
 
 
 class MyPlugin {
@@ -114,3 +114,57 @@ See the example app available @ [`main.dart`](example/lib/main.dart) & [`MainAct
 except that this one doesn't have any dart code :-)
 
 The core plugin code can be found at [`MethodCallDispatcherPlugin.kt`](android/src/main/kotlin/com/pycampers/method_call_dispatcher/MethodCallDispatcherPlugin.kt)
+
+
+## iOS
+
+
+```swift
+import plugin_scaffold
+
+
+enum MyError: Error {
+    case fatalError
+}
+
+func myFancyMethod(call _: FlutterMethodCall, result: @escaping FlutterResult) {
+    // trySend is not required, but serves as a precautionary measure against errors.
+    // useful in callbacks
+    trySend(result) {
+        "Hello from Swift!"
+    }
+}
+
+func myBrokenMethod(call _: FlutterMethodCall, result _: @escaping FlutterResult) throws {
+    throw MyError.fatalError
+}
+
+func myBrokenCallbackMethod(call _: FlutterMethodCall, result _: @escaping FlutterResult) throws {
+    throw NSError(domain: "hello", code: 123)
+}
+
+// unfortunately, swift just isn't dynamic enough to make full-scale dynamic dispatch possible :(
+createPluginScaffold(
+    messenger: messenger,
+    channelName: "myFancyChannel",
+    methodMap: [
+        "myFancyMethod": myFancyMethod,
+        "myBrokenMethod": myBrokenMethod,
+        "myBrokenCallbackMethod": myBrokenCallbackMethod,
+    ]
+)
+```
+
+**Errors are piped as well:**
+
+```
+[VERBOSE-2:ui_dart_state.cc(148)] Unhandled Exception: PlatformException(Runner.MyError.fatalError, The operation couldn’t be completed. (Runner.MyError error 0.), 0   plugin_scaffold                     0x0000000106131435 $s15plugin_scaffold14serializeErrorySo07FlutterD0CypF + 309
+1   plugin_scaffold                     0x0000000106135a39 $s15plugin_scaffold20createPluginScaffold9messenger11channelName9methodMap05eventJ0So20FlutterMethodChannelC_SDySSSo0l5EventN0CGtSo0L15BinaryMessenger_p_SSSDySSypGSDySSSo0L13StreamHandler_So8NSObjectpGtFySo0lM4CallC_yypSgctcfU_yycfU_ASycfU_ + 121
+2   plugin_scaffold                     0x000000010613654d $s15plugin_scaffold20createPluginScaffold9messenger11channelName9methodMap05eventJ0So20FlutterMethodChannelC_SDySSSo0l5EventN0CGtSo0L15BinaryMessenger_p_SSSDySSypGSDySSSo0L13StreamHandler_So8NSObjectpGtFySo0lM4CallC_yypSgctcfU_yycfU_ASycfU_TA + 13
+3   plugin_scaffold                     0x0000000106133099 $s15plugin_scaffold7trySendyyyypSgc_ACyKcSgtFyycfU_ + 297
+<…>
+[VERBOSE-2:ui_dart_state.cc(148)] Unhandled Exception: PlatformException(Error Domain=hello Code=123 "(null)", The operation couldn’t be completed. (hello error 123.), 0   plugin_scaffold                     0x0000000106131435 $s15plugin_scaffold14serializeErrorySo07FlutterD0CypF + 309
+1   plugin_scaffold                     0x0000000106135a39 $s15plugin_scaffold20createPluginScaffold9messenger11channelName9methodMap05eventJ0So20FlutterMethodChannelC_SDySSSo0l5EventN0CGtSo0L15BinaryMessenger_p_SSSDySSypGSDySSSo0L13StreamHandler_So8NSObjectpGtFySo0lM4CallC_yypSgctcfU_yycfU_ASycfU_ + 121
+2   plugin_scaffold                     0x000000010613654d $s15plugin_scaffold20createPluginScaffold9messenger11channelName9methodMap05eventJ0So20FlutterMethodChannelC_SDySSSo0l5EventN0CGtSo0L15BinaryMessenger_p_SSSDySSypGSDySSSo0L13StreamHandler_So8NSObjectpGtFySo0lM4CallC_yypSgctcfU_yycfU_ASycfU_TA + 13
+3   plugin_scaffold                     0x0000000106133099 $s15plugin_scaffold7trySendyyyypSgc_ACyKcSgtFyycfU_ + <…>
+```

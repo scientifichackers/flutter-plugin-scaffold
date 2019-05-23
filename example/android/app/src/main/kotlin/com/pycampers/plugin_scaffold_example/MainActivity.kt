@@ -1,7 +1,6 @@
 package com.pycampers.plugin_scaffold_example
 
 import android.os.Bundle
-import com.pycampers.plugin_scaffold.createMethodChannel
 import com.pycampers.plugin_scaffold.createPluginScaffold
 import com.pycampers.plugin_scaffold.trySend
 import io.flutter.app.FlutterActivity

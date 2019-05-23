@@ -30,11 +30,15 @@ func myBrokenCallbackMethod(call _: FlutterMethodCall, result _: @escaping Flutt
         let messenger = window?.rootViewController as! FlutterBinaryMessenger
 
         // unfortunately, swift just isn't dynamic enough to make full-scale dynamic dispatch possible :(
-        createPluginScaffold(messenger: messenger, channelName: "myFancyChannel", methodMap: [
-            "myFancyMethod": myFancyMethod,
-            "myBrokenMethod": myBrokenMethod,
-            "myBrokenCallbackMethod": myBrokenCallbackMethod,
-        ])
+        createPluginScaffold(
+            messenger: messenger,
+            channelName: "myFancyChannel",
+            methodMap: [
+                "myFancyMethod": myFancyMethod,
+                "myBrokenMethod": myBrokenMethod,
+                "myBrokenCallbackMethod": myBrokenCallbackMethod,
+            ]
+        )
 
         GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
