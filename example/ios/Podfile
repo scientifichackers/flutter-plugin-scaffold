@@ -24,7 +24,7 @@ def parse_KV_file(file, separator='=')
         podname = plugin[0].strip()
         path = plugin[1].strip()
         podpath = File.expand_path("#{path}", file_abs_path)
-        pods_ary.push({:name => podname, :path => podpath});
+        pods_ary.push({:channelName => podname, :path => podpath});
       else
         puts "Invalid plugin specification: #{line}"
       end
@@ -46,7 +46,7 @@ target 'Runner' do
     puts "Generated.xcconfig must exist. If you're running pod install manually, make sure flutter packages get is executed first."
   end
   generated_xcode_build_settings.map { |p|
-    if p[:name] == 'FLUTTER_FRAMEWORK_DIR'
+    if p[:channelName] == 'FLUTTER_FRAMEWORK_DIR'
       symlink = File.join('.symlinks', 'flutter')
       File.symlink(File.dirname(p[:path]), symlink)
       pod 'Flutter', :path => File.join(symlink, File.basename(p[:path]))
@@ -56,9 +56,9 @@ target 'Runner' do
   # Plugin Pods
   plugin_pods = parse_KV_file('../.flutter-plugins')
   plugin_pods.map { |p|
-    symlink = File.join('.symlinks', 'plugins', p[:name])
+    symlink = File.join('.symlinks', 'plugins', p[:channelName])
     File.symlink(p[:path], symlink)
-    pod p[:name], :path => File.join(symlink, 'ios')
+    pod p[:channelName], :path => File.join(symlink, 'ios')
   }
 end
 

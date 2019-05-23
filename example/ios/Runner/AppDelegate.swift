@@ -6,39 +6,35 @@ enum MyError: Error {
     case fatalError
 }
 
-func myFancyMethod(call: FlutterMethodCall, result: @escaping FlutterResult) {
+func myFancyMethod(call _: FlutterMethodCall, result: @escaping FlutterResult) {
     // trySend is not required, but serves as a precautionary measure against errors.
     trySend(result) {
         "Hello from Swift!"
     }
 }
 
-func myBrokenMethod(call: FlutterMethodCall, result: @escaping FlutterResult) throws {
+func myBrokenMethod(call _: FlutterMethodCall, result _: @escaping FlutterResult) throws {
     throw MyError.fatalError
 }
 
-func myBrokenCallbackMethod(call: FlutterMethodCall, result: @escaping FlutterResult) throws {
+func myBrokenCallbackMethod(call _: FlutterMethodCall, result _: @escaping FlutterResult) throws {
     throw NSError(domain: "hello", code: 123)
 }
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
     override func application(
-            _ application: UIApplication,
-            didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?
     ) -> Bool {
         let messenger = window?.rootViewController as! FlutterBinaryMessenger
 
         // unfortunately, swift just isn't dynamic enough to make full-scale dynamic dispatch possible :(
-        createMethodChannel(
-                name: "myFancyChannel",
-                messenger: messenger,
-                funcMap: [
-                    "myFancyMethod": myFancyMethod,
-                    "myBrokenMethod": myBrokenMethod,
-                    "myBrokenCallbackMethod": myBrokenCallbackMethod
-                ]
-        )
+        createPluginScaffold(messenger: messenger, channelName: "myFancyChannel", methodMap: [
+            "myFancyMethod": myFancyMethod,
+            "myBrokenMethod": myBrokenMethod,
+            "myBrokenCallbackMethod": myBrokenCallbackMethod,
+        ])
 
         GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
