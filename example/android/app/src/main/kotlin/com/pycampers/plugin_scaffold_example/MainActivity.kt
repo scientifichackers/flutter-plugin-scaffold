@@ -2,6 +2,7 @@ package com.pycampers.plugin_scaffold_example
 
 import android.os.Bundle
 import com.pycampers.plugin_scaffold.createMethodChannel
+import com.pycampers.plugin_scaffold.createPluginScaffold
 import com.pycampers.plugin_scaffold.trySend
 import io.flutter.app.FlutterActivity
 import io.flutter.plugin.common.MethodCall
@@ -44,6 +45,6 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         GeneratedPluginRegistrant.registerWith(this)
 
-        createMethodChannel("myFancyChannel", flutterView, MyPlugin())
+        createPluginScaffold("myFancyChannel", flutterView, MyPlugin())
     }
 }
