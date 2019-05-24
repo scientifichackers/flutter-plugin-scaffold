@@ -3,9 +3,7 @@ package com.pycampers.plugin_scaffold
 import android.os.AsyncTask
 import android.util.Log
 import io.flutter.plugin.common.BinaryMessenger
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.EventChannel.EventSink
-import io.flutter.plugin.common.EventChannel.StreamHandler
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.Result
@@ -16,10 +14,20 @@ import java.lang.reflect.Method
 
 const val TAG = "PluginScaffold"
 
+const val ON_LISTEN = "OnListen"
+const val ON_CANCEL = "OnCancel"
+const val ON_SUCCESS = "onSuccess"
+const val ON_ERROR = "onError"
+const val END_OF_STREAM = "endOfStream"
+
+val methodSignature = listOf(MethodCall::class.java, Result::class.java)
+val onListenSignature = listOf(Int::class.java, Object::class.java, StreamSink::class.java)
+
 typealias OnError = (errorCode: String, errorMessage: String?, errorDetails: Any?) -> Unit
 typealias OnSuccess = (result: Any?) -> Unit
 typealias AnyFn = () -> Any?
 typealias UnitFn = () -> Unit
+typealias MethodMap = MutableMap<String, Method>
 
 class PluginScaffoldPlugin {
     companion object {
@@ -139,76 +147,120 @@ fun catchErrors(onError: OnError, fn: UnitFn) {
 fun catchErrors(result: Result, fn: UnitFn) = catchErrors(result::error, fn)
 fun catchErrors(events: EventSink, fn: UnitFn) = catchErrors(events::error, fn)
 
-fun buildMethodMap(pluginObj: Any): Map<String, Method> {
-    val map = mutableMapOf<String, Method>()
+fun buildMethodMap(pluginObj: Any): MethodMap {
+    val map: MethodMap = mutableMapOf()
     for (method in pluginObj::class.java.methods) {
-        val params = method.parameterTypes
-        if (
-            params.size == 2 &&
-            params[0] == MethodCall::class.java &&
-            params[1] == Result::class.java
-        ) {
+        if (method.parameterTypes.toList() == methodSignature) {
             map[method.name] = method
         }
     }
-    return map.toMap()
+    return map
 }
 
-/**
- * Inherit this class to make any kotlin methods with the signature:-
- *
- *  methodName([MethodCall], [Result])
- *
- * be magically available to Flutter's platform channels,
- * by the power of dynamic dispatch!
- */
-fun createPluginScaffold(
-    channelName: String,
-    messenger: BinaryMessenger,
-    pluginObj: Any = Any(),
-    eventMap: Map<String, StreamHandler> = mapOf()
-): Pair<MethodChannel, Map<String, EventChannel>> {
-    val methodMap = buildMethodMap(pluginObj)
+fun getStreamName(methodName: String): String? {
+    if (methodName.endsWith(ON_LISTEN)) {
+        val streamName = methodName.substring(0, methodName.length - ON_LISTEN.length)
+        if (streamName.isNotEmpty()) {
+            return streamName
+        }
+    } else if (methodName.endsWith(ON_CANCEL)) {
+        val streamName = methodName.substring(0, methodName.length - ON_CANCEL.length)
+        if (streamName.isNotEmpty()) {
+            return streamName
+        }
+    }
+    return null
+}
 
+fun buildStreamMethodMap(pluginObj: Any): Pair<MethodMap, MethodMap> {
+    val onListenMethods: MethodMap = mutableMapOf()
+    val onCancelMethods: MethodMap = mutableMapOf()
+
+    val cls = pluginObj::class.java
+    for (listenMethod in cls.methods) {
+        if (listenMethod.parameterTypes.toList() != onListenSignature) continue
+
+        val onListenName = listenMethod.name
+        val streamName = getStreamName(onListenName) ?: continue
+        val onCancelName = streamName + ON_CANCEL
+
+        val cancelMethod: Method
+        try {
+            cancelMethod = cls.getMethod(onCancelName, Int::class.java, Object::class.java)
+        } catch (e: NoSuchMethodException) {
+            Log.w(
+                TAG,
+                "Found \"$onListenName()\" in \"$cls\", but accompanying method \"$onCancelName()\" was not found!"
+            )
+            continue
+        }
+
+        onListenMethods[onListenName] = listenMethod
+        onCancelMethods[onCancelName] = cancelMethod
+    }
+
+    return Pair(onListenMethods, onCancelMethods)
+}
+
+class StreamSink(val channel: MethodChannel, val prefix: String) : EventSink {
+    override fun success(event: Any?) {
+        channel.invokeMethod("$prefix/$ON_SUCCESS", event)
+    }
+
+    override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
+        channel.invokeMethod("$prefix/$ON_ERROR", listOf(errorCode, errorMessage, errorDetails))
+    }
+
+    override fun endOfStream() {
+        channel.invokeMethod("$prefix/$END_OF_STREAM", null)
+    }
+}
+
+fun createPluginScaffold(messenger: BinaryMessenger, channelName: String, pluginObj: Any = Any()): MethodChannel {
+    val methods = buildMethodMap(pluginObj)
+    val (onListenMethods, onCancelMethods) = buildStreamMethodMap(pluginObj)
     val channel = MethodChannel(messenger, channelName)
+
     channel.setMethodCallHandler { call, result ->
-        val methodName = call.method
-        val method = methodMap[methodName]
-        if (method == null) {
-            result.notImplemented()
+        val name = call.method
+        val args = call.arguments
+
+        fun exec(fn: UnitFn) {
+            DoAsync { catchErrors(result) { ignoreIllegalState(fn) } }
+        }
+
+        methods[name]?.run {
+            Log.d(TAG, "invoke { channel: $channelName, method: $name(), args: $args }")
+            exec { invoke(pluginObj, call, result) }
             return@setMethodCallHandler
         }
-        DoAsync {
-            Log.d(TAG, "invoke { channel: $channelName, method: $methodName(), args: ${call.arguments} }")
-            catchErrors(result) {
-                ignoreIllegalState {
-                    method.invoke(pluginObj, call, result)
-                }
-            }
+
+        onListenMethods[name]?.run {
+            val streamName = getStreamName(name)!!
+            val (hashCode: Any?, streamArgs: Any?) = args as List<*>
+            val prefix = "$streamName/$hashCode"
+            val sink = StreamSink(channel, prefix)
+            Log.d(
+                TAG,
+                "activate stream { channel: $channelName, stream: $streamName, hashCode: $hashCode, args: $streamArgs }"
+            )
+            exec { invoke(pluginObj, hashCode, streamArgs, sink) }
+            return@setMethodCallHandler
         }
+
+        onCancelMethods[name]?.run {
+            val streamName = getStreamName(name)!!
+            val (hashCode: Any?, streamArgs: Any?) = args as List<*>
+            Log.d(
+                TAG,
+                "de-activate stream { channel: $channelName, stream: $streamName, hashCode: $hashCode, args: $streamArgs }"
+            )
+            exec { invoke(pluginObj, hashCode, streamArgs) }
+            return@setMethodCallHandler
+        }
+
+        result.notImplemented()
     }
 
-    val eventChannels = mutableMapOf<String, EventChannel>()
-    for (entry in eventMap) {
-        val name = channelName + '/' + entry.key
-        val handler = entry.value
-
-        eventChannels[name] = EventChannel(messenger, name).apply {
-            setStreamHandler(object : StreamHandler {
-                override fun onListen(args: Any?, eventSink: EventSink) {
-                    Log.d(TAG, "onListen { channel: $name, args: $args }")
-                    catchErrors(eventSink) {
-                        handler.onListen(args, eventSink)
-                    }
-                }
-
-                override fun onCancel(args: Any?) {
-                    Log.d(TAG, "onCancel { channel: $name, args: $args }")
-                    handler.onCancel(args)
-                }
-            })
-        }
-    }
-
-    return Pair(channel, eventChannels)
+    return channel
 }
