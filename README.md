@@ -117,9 +117,9 @@ dependencies {
 ## Usage
 
 The example is app available @ [`main.dart`](example/lib/main.dart),
-[`MainActivity.kt`](example/android/app/src/main/kotlin/com/pycampers/method_call_dispatcher_example/MainActivity.kt)
+[`MainActivity.kt`](example/android/app/src/main/kotlin/com/pycampers/plugin_scaffold_example/MainActivity.kt)
 & [`AppDelegate.dart`](example/ios/Runner/AppDelegate.swift)
 
 The core plugin code can be found @ [`plugin_scaffold.dart`](lib/plugin_scaffold.dart),
-[`MethodCallDispatcherPlugin.kt`](android/src/main/kotlin/com/pycampers/method_call_dispatcher/MethodCallDispatcherPlugin.kt)
+[`MethodCallDispatcherPlugin.kt`](android/src/main/kotlin/com/pycampers/plugin_scaffold/PluginScaffoldPlugin.kt)
 & [`SwiftPluginScaffoldPlugin.swift`](ios/Classes/SwiftPluginScaffoldPlugin.swift)
