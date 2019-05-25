@@ -54,6 +54,22 @@ class MyPlugin {
 createPluginScaffold("myFancyChannel", registrar.messenger(), MyPlugin())
 ```
 
+## Install
+Add this line to `ios/<plugin-name>.podspec`
+
+```
+s.dependency 'plugin_scaffold'
+```
+
+Add this line to `android/build.gradle`
+
+```
+dependencies {
+    implementation project(path: ':plugin_scaffold')
+    ...
+}
+```
+
 ## Errors
 
 Any errors that occur in native code tend to instantly crash the app.
