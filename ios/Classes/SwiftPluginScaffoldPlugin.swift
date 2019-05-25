@@ -109,7 +109,7 @@ public func createPluginScaffold(messenger: FlutterBinaryMessenger, channelName:
                 let sink: FlutterEventSink = { event in
                     switch event {
                     case let event as FlutterError:
-                        channel.invokeMethod("\(prefix)/\(onError)", arguments: event)
+                        channel.invokeMethod("\(prefix)/\(onError)", arguments: [event.code, event.message, event.details])
                         return
                     case let event as NSObject:
                         if event == FlutterEndOfEventStream {

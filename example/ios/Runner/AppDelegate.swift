@@ -4,15 +4,15 @@ import UIKit
 
 enum MyError: Error {
     case fatalError1
-    case fatalError2
+    case fatalError3
+    case fatalError4
 }
 
 class MyPlugin {
     var timers = [Int: Timer]()
 
     func myFancyMethod(call: FlutterMethodCall, result: @escaping FlutterResult) {
-        // trySend is not required, but serves as a precautionary measure against errors.
-        trySend(result) { "Hello from Swift!" }
+        result("Hello from Swift!")
     }
 
     func myBrokenMethod(call: FlutterMethodCall, result: @escaping FlutterResult) throws {
@@ -20,7 +20,13 @@ class MyPlugin {
     }
 
     func myBrokenCallbackMethod(call: FlutterMethodCall, result: @escaping FlutterResult) throws {
-        throw NSError(domain: "hello", code: 123)
+        if #available(iOS 10.0, *) {
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) {_ in
+                trySend(result) {
+                    throw NSError(domain: "Error from swift 2", code: 999)
+                }
+            }
+        }
     }
 
     func counterOnListen(id: Int, args: Any?, sink: @escaping FlutterEventSink) {
@@ -42,11 +48,17 @@ class MyPlugin {
         timers.removeValue(forKey: id)
     }
 
-    func brokenOnListen(id: Int, args: Any?, sink: @escaping FlutterEventSink) throws {
-        throw MyError.fatalError2
+    func brokenStream1OnListen(id: Int, args: Any?, sink: @escaping FlutterEventSink) throws {
+        throw MyError.fatalError3
     }
 
-    func brokenOnCancel(id: Int, args: Any?) {}
+    func brokenStream1OnCancel(id: Int, args: Any?) {}
+
+    func brokenStream2OnListen(id: Int, args: Any?, sink: @escaping FlutterEventSink) {
+        trySend(sink) { throw MyError.fatalError4 }
+    }
+
+    func brokenStream2OnCancel(id: Int, args: Any?) {}
 }
 
 @UIApplicationMain
@@ -58,7 +70,7 @@ class MyPlugin {
         let messenger = window?.rootViewController as! FlutterBinaryMessenger
 
         let plugin = MyPlugin()
-        
+
         // unfortunately, swift just isn't dynamic enough to make full-scale dynamic dispatch possible :(
         _ = createPluginScaffold(
             messenger: messenger,
@@ -69,8 +81,10 @@ class MyPlugin {
                 "myBrokenCallbackMethod": plugin.myBrokenCallbackMethod,
                 "counterOnListen": plugin.counterOnListen,
                 "counterOnCancel": plugin.counterOnCancel,
-                "brokenOnListen": plugin.brokenOnListen,
-                "brokenOnCancel": plugin.brokenOnCancel,
+                "brokenStream1OnListen": plugin.brokenStream1OnListen,
+                "brokenStream1OnCancel": plugin.brokenStream1OnCancel,
+                "brokenStream2OnListen": plugin.brokenStream2OnListen,
+                "brokenStream2OnCancel": plugin.brokenStream2OnCancel,
             ]
         )
 

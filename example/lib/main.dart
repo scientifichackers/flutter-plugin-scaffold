@@ -54,7 +54,16 @@ class _MyAppState extends State<MyApp> {
     }
 
     try {
-      await for (final _ in PluginScaffold.createStream(channel, "broken")) {}
+      await for (final _ in PluginScaffold.createStream(channel, "brokenStream1")) {}
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        errors.add(e.toString());
+      });
+    }
+
+    try {
+      await for (final _ in PluginScaffold.createStream(channel, "brokenStream2")) {}
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -109,6 +118,7 @@ class _MyAppState extends State<MyApp> {
                             padding: const EdgeInsets.all(8.0),
                             child: Text(it),
                           ),
+                          Divider(),
                         ],
                       );
                     }).toList(),

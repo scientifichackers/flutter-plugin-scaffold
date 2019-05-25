@@ -13,8 +13,7 @@ import kotlin.concurrent.timer
 
 class MyPlugin {
     fun myFancyMethod(call: MethodCall, result: Result) {
-        /* trySend is not required, but serves as a precautionary measure against errors. */
-        trySend(result) { "Hello from Kotlin!" }
+        result.success("Hello from Kotlin!")
     }
 
     fun myBrokenMethod(call: MethodCall, result: Result) {
@@ -22,7 +21,7 @@ class MyPlugin {
         This won't crash the app!
         The exception will be serialized to flutter, and is catch-able in flutter.
         */
-        throw IllegalArgumentException("Hello from Kotlin 1!")
+        throw IllegalArgumentException("Error from Kotlin 1!")
     }
 
     fun myBrokenCallbackMethod(call: MethodCall, result: Result) {
@@ -37,7 +36,7 @@ class MyPlugin {
             object : java.util.TimerTask() {
                 override fun run() {
                     trySend(result) {
-                        throw IllegalArgumentException("Hello from Kotlin 2!")
+                        throw IllegalArgumentException("Error from Kotlin 2!")
                     }
                 }
             },
@@ -51,7 +50,7 @@ class MyPlugin {
     Any method that is suffixed with `OnListen` is treated as a stream method.
 
     When a new stream is created from dart, this method is called.
-    You can use `sink` to send events to that stream.
+    You can use `sink` to send events through the stream.
 
     `id` is the `hashCode` of the accompanying `StreamController` (on dart side).
     It is provided as a way to differentiate between streams.
@@ -62,10 +61,12 @@ class MyPlugin {
             period = (args as Int).toLong(),
             action = {
                 sink.success(count)
+
                 if (count >= 100) {
                     sink.endOfStream()
                     cancel()
                 }
+
                 count += 1
             }
         )
@@ -81,13 +82,21 @@ class MyPlugin {
         timers.remove(id)
     }
 
-    /* Exceptions are piped in streams too */
-    fun brokenOnListen(id: Int, args: Any?, sink: StreamSink) {
-        throw IllegalArgumentException("Hello from Kotlin 3!")
+    /* Exceptions are piped in streams just as well */
+    fun brokenStream1OnListen(id: Int, args: Any?, sink: StreamSink) {
+        throw IllegalArgumentException("Error from Kotlin 3!")
     }
 
-    /* Again, this is required for `broken` to be accepted as a stream method. */
-    fun brokenOnCancel(id: Int, args: Any?) {}
+    /* Again, this is required for `brokenStream1` to be accepted as a stream */
+    fun brokenStream1OnCancel(id: Int, args: Any?) {}
+
+    fun brokenStream2OnListen(id: Int, args: Any?, sink: StreamSink) {
+        trySend(sink) {
+            throw IllegalArgumentException("Error from Kotlin 4!")
+        }
+    }
+
+    fun brokenStream2OnCancel(id: Int, args: Any?) {}
 }
 
 class MainActivity : FlutterActivity() {
