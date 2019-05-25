@@ -1,4 +1,4 @@
-[![Sponsor](https://img.shields.io/badge/Sponsor-jaaga_labs-red.svg?style=for-the-badge)](https://www.jaaga.in/labs) 
+[![Sponsor](https://img.shields.io/badge/Sponsor-jaaga_labs-red.svg?style=for-the-badge)](https://www.jaaga.in/labs)
 [![Pub](https://img.shields.io/pub/v/plugin_scaffold.svg?style=for-the-badge)](https://pub.dartlang.org/packages/plugin_scaffold)
 
 # Flutter Plugin Scaffold
@@ -87,7 +87,7 @@ E/flutter ( 3572): )
 
 ## Streams
 
-Flutter's `EventChannel`, has a flaw in that it only lets you open a single stream can be open at a time.
+Flutter's `EventChannel`, has a flaw in that it only lets you open only a single stream at a time.
 
 Plugin Scaffold's stream methods build upon regular `MethodChannel` callback methods,
 and provide a more flexible solution.
