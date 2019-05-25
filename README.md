@@ -10,6 +10,10 @@ This module is for you!
 - Built-in error serialization for both platforms
 - Superior streams.
 
+Used to create plugins such as [flutter_cogntio_plugin](https://github.com/pycampers/flutter_cognito_plugin),
+[rx_ble](https://github.com/pycampers/flutter-rx-ble), [flutter_pdf_viewer](https://github.com/pycampers/flutter_pdf_viewer),
+etc.
+
 ## TLDR
 
 It lets you turn this:-
