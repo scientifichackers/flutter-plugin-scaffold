@@ -10,6 +10,10 @@ This module is for you!
 - Built-in error serialization for both platforms
 - Superior streams.
 
+Used to create plugins such as [flutter_cogntio_plugin](https://github.com/pycampers/flutter_cognito_plugin),
+[rx_ble](https://github.com/pycampers/flutter-rx-ble), [flutter_pdf_viewer](https://github.com/pycampers/flutter_pdf_viewer),
+etc.
+
 ## TLDR
 
 It lets you turn this:-
@@ -117,9 +121,9 @@ dependencies {
 ## Usage
 
 The example is app available @ [`main.dart`](example/lib/main.dart),
-[`MainActivity.kt`](example/android/app/src/main/kotlin/com/pycampers/method_call_dispatcher_example/MainActivity.kt)
+[`MainActivity.kt`](example/android/app/src/main/kotlin/com/pycampers/plugin_scaffold_example/MainActivity.kt)
 & [`AppDelegate.dart`](example/ios/Runner/AppDelegate.swift)
 
 The core plugin code can be found @ [`plugin_scaffold.dart`](lib/plugin_scaffold.dart),
-[`MethodCallDispatcherPlugin.kt`](android/src/main/kotlin/com/pycampers/method_call_dispatcher/MethodCallDispatcherPlugin.kt)
+[`MethodCallDispatcherPlugin.kt`](android/src/main/kotlin/com/pycampers/plugin_scaffold/PluginScaffoldPlugin.kt)
 & [`SwiftPluginScaffoldPlugin.swift`](ios/Classes/SwiftPluginScaffoldPlugin.swift)
