@@ -13,34 +13,52 @@ class PluginScaffold {
 
   static final callHandlers = <String, List<MethodCallHandler>>{};
 
-  static void setMethodCallHandler(
-    MethodChannel channel,
-    String methodName,
-    MethodCallHandler handler,
-  ) {
+  static String getCallHandlerKey(MethodChannel channel, String methodName) {
+    return channel.name + methodName;
+  }
+
+  static void _setChannelCallHandler(MethodChannel channel) {
     channel.setMethodCallHandler((call) {
-      final key = channel.name + call.method;
+      final key = getCallHandlerKey(channel, call.method);
       final handlers = callHandlers[key];
       for (var handler in handlers) {
         handler(call.arguments);
       }
     });
-    final key = channel.name + methodName;
-    callHandlers.putIfAbsent(key, () => []);
-    callHandlers[key].add(handler);
   }
 
-  static void removeMethodCallHandler(MethodCallHandler handler) {
+  static void addCallHandler(
+    MethodChannel channel,
+    String methodName,
+    MethodCallHandler handler,
+  ) {
+    final key = getCallHandlerKey(channel, methodName);
+    callHandlers.putIfAbsent(key, () => []);
+    callHandlers[key].add(handler);
+    _setChannelCallHandler(channel);
+  }
+
+  static void setCallHandler(
+    MethodChannel channel,
+    String methodName,
+    MethodCallHandler handler,
+  ) {
+    final key = getCallHandlerKey(channel, methodName);
+    callHandlers[key] = [handler];
+    _setChannelCallHandler(channel);
+  }
+
+  static void removeCallHandler(MethodCallHandler handler) {
     callHandlers.removeWhere((_, it) {
       return it == handler;
     });
   }
 
-  static void removeMethodCallHandlerByName(
+  static void removeCallHandlersWithName(
     MethodChannel channel,
     String methodName,
   ) {
-    callHandlers.remove(channel.name + methodName);
+    callHandlers.remove(getCallHandlerKey(channel, methodName));
   }
 
   static Stream<T> createStream<T>(
@@ -54,15 +72,15 @@ class PluginScaffold {
         final hashCode = controller.hashCode;
         final prefix = '$streamName/$hashCode';
 
-        setMethodCallHandler(channel, "$prefix/$onSuccess", (event) {
+        setCallHandler(channel, "$prefix/$onSuccess", (event) {
           controller.add(event);
         });
-        setMethodCallHandler(channel, "$prefix/$onError", (err) {
+        setCallHandler(channel, "$prefix/$onError", (err) {
           controller.addError(
             PlatformException(code: err[0], message: err[1], details: err[2]),
           );
         });
-        setMethodCallHandler(channel, "$prefix/$endOfStream", (_) {
+        setCallHandler(channel, "$prefix/$endOfStream", (_) {
           controller.close();
         });
 
@@ -76,9 +94,9 @@ class PluginScaffold {
         final hashCode = controller.hashCode;
         final prefix = '$streamName/$hashCode';
 
-        removeMethodCallHandlerByName(channel, "$prefix/$onSuccess");
-        removeMethodCallHandlerByName(channel, "$prefix/$onError");
-        removeMethodCallHandlerByName(channel, "$prefix/$endOfStream");
+        removeCallHandlersWithName(channel, "$prefix/$onSuccess");
+        removeCallHandlersWithName(channel, "$prefix/$onError");
+        removeCallHandlersWithName(channel, "$prefix/$endOfStream");
 
         try {
           await channel.invokeMethod(streamName + onCancel, [hashCode, args]);
