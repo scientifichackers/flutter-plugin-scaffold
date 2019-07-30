@@ -1,6 +1,8 @@
 package com.pycampers.plugin_scaffold
 
 import android.os.AsyncTask
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel.EventSink
@@ -22,6 +24,7 @@ const val END_OF_STREAM = "endOfStream"
 
 val methodSignature = listOf(MethodCall::class.java, Result::class.java)
 val onListenSignature = listOf(Int::class.java, Object::class.java, StreamSink::class.java)
+var handler = Handler(Looper.getMainLooper())
 
 typealias OnError = (errorCode: String, errorMessage: String?, errorDetails: Any?) -> Unit
 typealias OnSuccess = (result: Any?) -> Unit
@@ -33,17 +36,6 @@ class PluginScaffoldPlugin {
     companion object {
         @JvmStatic
         fun registerWith(registrar: Registrar) = Unit
-    }
-}
-
-class DoAsync(val fn: () -> Unit) : AsyncTask<Void, Void, Void>() {
-    init {
-        execute()
-    }
-
-    override fun doInBackground(vararg params: Void?): Void? {
-        fn()
-        return null
     }
 }
 
@@ -113,16 +105,17 @@ fun trySendThrowable(events: EventSink, throwable: Throwable) = trySendThrowable
  * because this will automatically send exceptions using error using [trySendThrowable] and [onError] if required.
  */
 fun trySend(onSuccess: OnSuccess, onError: OnError, fn: AnyFn? = null) {
-    val value: Any?
-    try {
-        value = fn?.invoke()
-    } catch (e: Throwable) {
-        trySendThrowable(onError, e)
-        return
-    }
+    handler.post {
+        val value: Any?
+        try {
+            value = fn?.invoke()
 
-    ignoreIllegalState {
-        onSuccess(if (value is Unit) null else value)
+            ignoreIllegalState {
+                onSuccess(if (value is Unit) null else value)
+            }
+        } catch (e: Throwable) {
+            trySendThrowable(onError, e)
+        }
     }
 }
 
@@ -202,17 +195,17 @@ fun buildStreamMethodMap(pluginObj: Any): Pair<MethodMap, MethodMap> {
     return Pair(onListenMethods, onCancelMethods)
 }
 
-class StreamSink(val channel: MethodChannel, val prefix: String) : EventSink {
+class StreamSink(val channel: MethodChannel, val prefix: String, val handler : Handler) : EventSink {
     override fun success(event: Any?) {
-        channel.invokeMethod("$prefix/$ON_SUCCESS", event)
+        handler.post { channel.invokeMethod("$prefix/$ON_SUCCESS", event) }
     }
 
     override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
-        channel.invokeMethod("$prefix/$ON_ERROR", listOf(errorCode, errorMessage, errorDetails))
+        handler.post { channel.invokeMethod("$prefix/$ON_ERROR", listOf(errorCode, errorMessage, errorDetails)) }
     }
 
     override fun endOfStream() {
-        channel.invokeMethod("$prefix/$END_OF_STREAM", null)
+        handler.post { channel.invokeMethod("$prefix/$END_OF_STREAM", null) }
     }
 }
 
@@ -226,7 +219,7 @@ fun createPluginScaffold(messenger: BinaryMessenger, channelName: String, plugin
         val args = call.arguments
 
         fun exec(fn: UnitFn) {
-            DoAsync { catchErrors(result) { ignoreIllegalState(fn) } }
+            handler.post  { catchErrors(result) { ignoreIllegalState(fn) } }
         }
 
         methods[name]?.run {
@@ -239,7 +232,7 @@ fun createPluginScaffold(messenger: BinaryMessenger, channelName: String, plugin
             val streamName = getStreamName(name)!!
             val (hashCode: Any?, streamArgs: Any?) = args as List<*>
             val prefix = "$streamName/$hashCode"
-            val sink = StreamSink(channel, prefix)
+            val sink = StreamSink(channel, prefix, handler)
             Log.d(
                 TAG,
                 "activate stream { channel: $channelName, stream: $streamName, hashCode: $hashCode, args: $streamArgs }"
