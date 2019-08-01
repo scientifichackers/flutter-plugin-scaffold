@@ -69,7 +69,7 @@ fun serializeStackTrace(throwable: Throwable): String {
 fun trySendError(onError: OnError, name: String?, message: String?, stackTrace: String?) {
     ignoreIllegalState {
         Log.d(TAG, "piping exception to flutter ($name)")
-        onError(name ?: "null", message, stackTrace)
+        handler.post { onError(name ?: "null", message, stackTrace) }
     }
 }
 
