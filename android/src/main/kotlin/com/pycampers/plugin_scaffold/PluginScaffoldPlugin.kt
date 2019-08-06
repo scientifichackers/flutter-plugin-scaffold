@@ -1,6 +1,5 @@
 package com.pycampers.plugin_scaffold
 
-import android.os.AsyncTask
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -48,7 +47,10 @@ fun ignoreIllegalState(fn: UnitFn) {
     try {
         fn()
     } catch (e: IllegalStateException) {
-        Log.d(TAG, "ignoring exception: $e. See https://github.com/flutter/flutter/issues/29092 for details.")
+        Log.d(
+            TAG,
+            "ignoring exception: $e. See https://github.com/flutter/flutter/issues/29092 for details."
+        )
     }
 }
 
@@ -94,15 +96,21 @@ fun trySendThrowable(onError: OnError, throwable: Throwable) {
     )
 }
 
-fun trySendThrowable(result: Result, throwable: Throwable) = trySendThrowable(result::error, throwable)
-fun trySendThrowable(events: EventSink, throwable: Throwable) = trySendThrowable(events::error, throwable)
+fun trySendThrowable(result: Result, throwable: Throwable) {
+    trySendThrowable(result::error, throwable)
+}
+
+fun trySendThrowable(events: EventSink, throwable: Throwable) {
+    trySendThrowable(events::error, throwable)
+}
 
 /**
  * Try to send the value returned by [fn] using [onSuccess].
  * by encapsulating calls inside [ignoreIllegalState].
  *
  * It is advisable to wrap any native code inside [fn],
- * because this will automatically send exceptions using error using [trySendThrowable] and [onError] if required.
+ * because this will automatically send exceptions using
+ * using [trySendThrowable] and [onError] if required.
  */
 fun trySend(onSuccess: OnSuccess, onError: OnError, fn: AnyFn? = null) {
     handler.post {
@@ -119,8 +127,13 @@ fun trySend(onSuccess: OnSuccess, onError: OnError, fn: AnyFn? = null) {
     }
 }
 
-fun trySend(result: Result, fn: AnyFn? = null) = trySend(result::success, result::error, fn)
-fun trySend(events: EventSink, fn: AnyFn? = null) = trySend(events::success, events::error, fn)
+fun trySend(result: Result, fn: AnyFn? = null) {
+    trySend(result::success, result::error, fn)
+}
+
+fun trySend(events: EventSink, fn: AnyFn? = null) {
+    trySend(events::success, events::error, fn)
+}
 
 /**
  * Run [fn].
@@ -137,8 +150,13 @@ fun catchErrors(onError: OnError, fn: UnitFn) {
     }
 }
 
-fun catchErrors(result: Result, fn: UnitFn) = catchErrors(result::error, fn)
-fun catchErrors(events: EventSink, fn: UnitFn) = catchErrors(events::error, fn)
+fun catchErrors(result: Result, fn: UnitFn) {
+    catchErrors(result::error, fn)
+}
+
+fun catchErrors(events: EventSink, fn: UnitFn) {
+    catchErrors(events::error, fn)
+}
 
 fun buildMethodMap(pluginObj: Any): MethodMap {
     val map: MethodMap = mutableMapOf()
@@ -195,21 +213,34 @@ fun buildStreamMethodMap(pluginObj: Any): Pair<MethodMap, MethodMap> {
     return Pair(onListenMethods, onCancelMethods)
 }
 
-class StreamSink(val channel: MethodChannel, val prefix: String, val handler : Handler) : EventSink {
+class StreamSink(val channel: MethodChannel, val prefix: String) : EventSink {
     override fun success(event: Any?) {
-        handler.post { channel.invokeMethod("$prefix/$ON_SUCCESS", event) }
+        handler.post {
+            channel.invokeMethod("$prefix/$ON_SUCCESS", event)
+        }
     }
 
     override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
-        handler.post { channel.invokeMethod("$prefix/$ON_ERROR", listOf(errorCode, errorMessage, errorDetails)) }
+        handler.post {
+            channel.invokeMethod(
+                "$prefix/$ON_ERROR",
+                listOf(errorCode, errorMessage, errorDetails)
+            )
+        }
     }
 
     override fun endOfStream() {
-        handler.post { channel.invokeMethod("$prefix/$END_OF_STREAM", null) }
+        handler.post {
+            channel.invokeMethod("$prefix/$END_OF_STREAM", null)
+        }
     }
 }
 
-fun createPluginScaffold(messenger: BinaryMessenger, channelName: String, pluginObj: Any = Any()): MethodChannel {
+fun createPluginScaffold(
+    messenger: BinaryMessenger,
+    channelName: String,
+    pluginObj: Any = Any()
+): MethodChannel {
     val methods = buildMethodMap(pluginObj)
     val (onListenMethods, onCancelMethods) = buildStreamMethodMap(pluginObj)
     val channel = MethodChannel(messenger, channelName)
@@ -218,37 +249,61 @@ fun createPluginScaffold(messenger: BinaryMessenger, channelName: String, plugin
         val name = call.method
         val args = call.arguments
 
-        fun exec(fn: UnitFn) {
-            handler.post  { catchErrors(result) { ignoreIllegalState(fn) } }
+        /**
+         * Run any function inside the handler,
+         * catch any errors if they occur,
+         * and ignore IllegalStateError.
+         */
+        fun execSafe(fn: UnitFn) {
+            handler.post { catchErrors(result) { ignoreIllegalState(fn) } }
         }
 
-        methods[name]?.run {
+        //
+        // Try to find the method in [methods], [onListenMethods] or [onCancelMethods],
+        // and invoke it using [execSafe].
+        //
+        // If not found, return [result.notImplemented()]
+        //
+
+        methods[name]?.let {
             Log.d(TAG, "invoke { channel: $channelName, method: $name(), args: $args }")
-            exec { invoke(pluginObj, call, result) }
+
+            execSafe {
+                it.invoke(pluginObj, call, result)
+            }
+
             return@setMethodCallHandler
         }
 
-        onListenMethods[name]?.run {
+        onListenMethods[name]?.let {
             val streamName = getStreamName(name)!!
             val (hashCode: Any?, streamArgs: Any?) = args as List<*>
             val prefix = "$streamName/$hashCode"
-            val sink = StreamSink(channel, prefix, handler)
+            val sink = StreamSink(channel, prefix)
             Log.d(
                 TAG,
                 "activate stream { channel: $channelName, stream: $streamName, hashCode: $hashCode, args: $streamArgs }"
             )
-            exec { invoke(pluginObj, hashCode, streamArgs, sink) }
+
+            execSafe {
+                it.invoke(pluginObj, hashCode, streamArgs, sink)
+            }
+
             return@setMethodCallHandler
         }
 
-        onCancelMethods[name]?.run {
+        onCancelMethods[name]?.let {
             val streamName = getStreamName(name)!!
             val (hashCode: Any?, streamArgs: Any?) = args as List<*>
             Log.d(
                 TAG,
                 "de-activate stream { channel: $channelName, stream: $streamName, hashCode: $hashCode, args: $streamArgs }"
             )
-            exec { invoke(pluginObj, hashCode, streamArgs) }
+
+            execSafe {
+                it.invoke(pluginObj, hashCode, streamArgs)
+            }
+
             return@setMethodCallHandler
         }
 
