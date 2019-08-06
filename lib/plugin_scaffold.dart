@@ -1,7 +1,3 @@
-
-import 'dart:async';
-
-import 'package:flutter/services.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -15,14 +11,14 @@ class PluginScaffold {
   static const onError = "onError";
   static const endOfStream = "endOfStream";
 
-  static final callHandlers = <String, List<MethodCallHandler>>{};
+  static final callHandlers = <String, Set<MethodCallHandler>>{};
 
   static String getCallHandlerKey(MethodChannel channel, String methodName) {
-    return channel.name + methodName;
+    return "${channel.name}/$methodName";
   }
 
   static void _setChannelCallHandler(MethodChannel channel) {
-    channel.setMethodCallHandler((call) {
+    channel.setMethodCallHandler((call) async {
       final key = getCallHandlerKey(channel, call.method);
       final handlers = callHandlers[key];
       for (var handler in handlers) {
@@ -37,7 +33,7 @@ class PluginScaffold {
     MethodCallHandler handler,
   ) {
     final key = getCallHandlerKey(channel, methodName);
-    callHandlers.putIfAbsent(key, () => []);
+    callHandlers.putIfAbsent(key, () => {});
     callHandlers[key].add(handler);
     _setChannelCallHandler(channel);
   }
@@ -48,14 +44,14 @@ class PluginScaffold {
     MethodCallHandler handler,
   ) {
     final key = getCallHandlerKey(channel, methodName);
-    callHandlers[key] = [handler];
+    callHandlers[key] = {handler};
     _setChannelCallHandler(channel);
   }
 
   static void removeCallHandler(MethodCallHandler handler) {
-    callHandlers.removeWhere((_, it) {
-      return it == handler;
-    });
+    for (final it in callHandlers.values) {
+      it.remove(handler);
+    }
   }
 
   static void removeCallHandlersWithName(
