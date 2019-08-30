@@ -1,7 +1,7 @@
 package com.pycampers.plugin_scaffold_example
 
 import android.os.Bundle
-import com.pycampers.plugin_scaffold.StreamSink
+import com.pycampers.plugin_scaffold.MainThreadStreamSink
 import com.pycampers.plugin_scaffold.createPluginScaffold
 import com.pycampers.plugin_scaffold.trySend
 import io.flutter.app.FlutterActivity
@@ -55,7 +55,7 @@ class MyPlugin {
     `id` is the `hashCode` of the accompanying `StreamController` (on dart side).
     It is provided as a way to differentiate between streams.
     */
-    fun counterOnListen(id: Int, args: Any?, sink: StreamSink) {
+    fun counterOnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
         var count = 0
         timers[id] = timer(
             period = (args as Int).toLong(),
@@ -83,14 +83,14 @@ class MyPlugin {
     }
 
     /* Exceptions are piped in streams just as well */
-    fun brokenStream1OnListen(id: Int, args: Any?, sink: StreamSink) {
+    fun brokenStream1OnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
         throw IllegalArgumentException("Error from Kotlin 3!")
     }
 
     /* Again, this is required for `brokenStream1` to be accepted as a stream */
     fun brokenStream1OnCancel(id: Int, args: Any?) {}
 
-    fun brokenStream2OnListen(id: Int, args: Any?, sink: StreamSink) {
+    fun brokenStream2OnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
         trySend(sink) {
             throw IllegalArgumentException("Error from Kotlin 4!")
         }
@@ -103,7 +103,6 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         GeneratedPluginRegistrant.registerWith(this)
-
         createPluginScaffold(flutterView, "myFancyChannel", MyPlugin())
     }
 }
