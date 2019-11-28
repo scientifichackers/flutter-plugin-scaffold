@@ -72,6 +72,7 @@ class PluginScaffold {
         final hashCode = controller.hashCode;
         final prefix = '$streamName/$hashCode';
 
+
         setCallHandler(channel, "$prefix/$onSuccess", (event) {
           controller.add(event);
         });

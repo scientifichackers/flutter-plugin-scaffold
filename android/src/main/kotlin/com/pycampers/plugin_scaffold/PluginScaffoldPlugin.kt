@@ -1,6 +1,7 @@
 package com.pycampers.plugin_scaffold
 
 import android.os.AsyncTask
+import android.os.Handler
 import android.util.Log
 import io.flutter.app.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
@@ -21,9 +22,9 @@ const val ON_SUCCESS = "onSuccess"
 const val ON_ERROR = "onError"
 const val END_OF_STREAM = "endOfStream"
 
-val methodSignature = listOf(MethodCall::class.java, Result::class.java)
-val onListenSignature =
-    listOf(Int::class.java, Object::class.java, MainThreadStreamSink::class.java)
+private val methodSignature = listOf(MethodCall::class.java, Result::class.java)
+private val onListenSignature =
+    listOf(Int::class.java, Object::class.java, EventSink::class.java)
 
 typealias OnError = (errorCode: String, errorMessage: String?, errorDetails: Any?) -> Unit
 typealias OnSuccess = (result: Any?) -> Unit
@@ -41,7 +42,7 @@ typealias MethodMap = MutableMap<String, Method>
  *  - If you're inside a subclass of [FlutterActivity], pass [FlutterActivity.getFlutterView] (generally regular flutter apps)
  *  - If you have access to a [Registrar] object, pass [Registrar.messenger] (generally flutter plugin projects)
  *
- * If [runOnMainThread] is set to [true],
+ * If [runOnMainThread] is set to `true`,
  * the methods in [pluginObj] will be invoked from the main thread (using [Handler.post]).
  * Otherwise, they will be invoked from an [AsyncTask].
  */
@@ -81,7 +82,7 @@ fun createPluginScaffold(
             val streamName = getStreamName(name)!!
             val (hashCode: Any?, streamArgs: Any?) = args as List<*>
             val prefix = "$streamName/$hashCode"
-            val sink = MainThreadStreamSink(channel, prefix)
+            val sink = MainThreadEventSink(channel, prefix)
 
             Log.d(
                 TAG,
@@ -118,63 +119,33 @@ fun createPluginScaffold(
 fun createMethodWrapper(runOnMainThread: Boolean): (Result, UnitFn) -> Unit {
     if (runOnMainThread) {
         return { result, fn ->
-            handler.post { execSafe(result, fn) }
+            handler.post {
+                catchErrors(result, fn)
+            }
         }
     } else {
         return { result, fn ->
-            DoAsync { execSafe(result, fn) }
+            DoAsync {
+                catchErrors(result, fn)
+            }
         }
     }
-}
-
-fun execSafe(result: Result, fn: UnitFn): Unit {
-    catchErrors(result) { ignoreIllegalState(fn) }
-}
-
-/**
- * Runs [fn], ignoring [IllegalStateException], if encountered.
- *
- * Workaround for https://github.com/flutter/flutter/issues/29092.
- */
-fun ignoreIllegalState(fn: UnitFn) {
-    try {
-        fn()
-    } catch (e: IllegalStateException) {
-        Log.d(
-            TAG,
-            "ignoring exception: $e. See https://github.com/flutter/flutter/issues/29092 for details."
-        )
-    }
-}
-
-/**
- * Serialize the stacktrace contained in [throwable] to a [String].
- */
-fun serializeStackTrace(throwable: Throwable): String {
-    val sw = StringWriter()
-    val pw = PrintWriter(sw)
-    throwable.printStackTrace(pw)
-    return sw.toString()
 }
 
 /**
  * Try to send the value returned by [fn] using [onSuccess].
- * by encapsulating calls inside [ignoreIllegalState].
  *
  * It is advisable to wrap any native code inside [fn],
- * because this will automatically send exceptions using
- * using [trySendThrowable] and [onError] if required.
+ * because this will automatically catch and send to dart exceptions using
+ * using [sendThrowable] and [onError] if required.
  */
 fun trySend(onSuccess: OnSuccess, onError: OnError, fn: AnyFn? = null) {
     val value: Any?
     try {
         value = fn?.invoke()
-
-        ignoreIllegalState {
-            onSuccess(if (value is Unit) null else value)
-        }
+        onSuccess(if (value is Unit) null else value)
     } catch (e: Throwable) {
-        trySendThrowable(onError, e)
+        sendThrowable(onError, e)
     }
 }
 
@@ -188,7 +159,7 @@ fun trySend(events: EventSink, fn: AnyFn? = null) {
 
 /**
  * Run [fn].
- * Automatically send exceptions using error using [trySendThrowable] if required.
+ * Automatically send exceptions using error using [sendThrowable] if required.
  *
  * This differs from [trySend],
  * in that it won't invoke [Result.success] using the return value of [fn].
@@ -197,7 +168,7 @@ fun catchErrors(onError: OnError, fn: UnitFn) {
     try {
         fn()
     } catch (e: Throwable) {
-        trySendThrowable(onError, e)
+        sendThrowable(onError, e)
     }
 }
 
@@ -210,52 +181,45 @@ fun catchErrors(events: EventSink, fn: UnitFn) {
 }
 
 /**
- * Serialize the [throwable] and send it using [trySendError].
+ * Serialize the [throwable] and send it using [onError].
  */
-fun trySendThrowable(onError: OnError, throwable: Throwable) {
+fun sendThrowable(onError: OnError, throwable: Throwable) {
     val e = throwable.cause ?: throwable
-    trySendError(
-        onError,
-        e.javaClass.canonicalName,
+    onError(
+        e.javaClass.canonicalName ?: "null",
         e.message,
         serializeStackTrace(e)
     )
 }
 
-fun trySendThrowable(result: Result, throwable: Throwable) {
-    trySendThrowable(result::error, throwable)
+fun sendThrowable(result: Result, throwable: Throwable) {
+    sendThrowable(result::error, throwable)
 }
 
-fun trySendThrowable(events: EventSink, throwable: Throwable) {
-    trySendThrowable(events::error, throwable)
+fun sendThrowable(events: EventSink, throwable: Throwable) {
+    sendThrowable(events::error, throwable)
 }
 
 /**
- * Try to send an error using [onError],
- * by encapsulating calls inside [ignoreIllegalState].
+ * Serialize the stacktrace contained in [throwable] to a [String].
  */
-fun trySendError(onError: OnError, name: String?, message: String?, stackTrace: String?) {
-    ignoreIllegalState {
-        Log.d(TAG, "piping exception to flutter ($name)")
-        onError(name ?: "null", message, stackTrace)
-    }
-}
-
-fun trySendError(result: Result, name: String?, message: String?, stackTrace: String?) {
-    trySendError(result::error, name, message, stackTrace)
-}
-
-fun trySendError(events: EventSink, name: String?, message: String?, stackTrace: String?) {
-    trySendError(events::error, name, message, stackTrace)
+fun serializeStackTrace(throwable: Throwable): String {
+    val sw = StringWriter()
+    val pw = PrintWriter(sw)
+    throwable.printStackTrace(pw)
+    return sw.toString()
 }
 
 fun buildMethodMap(pluginObj: Any): MethodMap {
     val map: MethodMap = mutableMapOf()
+
     for (method in pluginObj::class.java.methods) {
-        if (method.parameterTypes.toList() == methodSignature) {
-            map[method.name] = method
-        }
+        val paramList = method.parameterTypes.toList()
+        if (paramList != methodSignature) continue
+
+        map[method.name] = method
     }
+
     return map
 }
 
@@ -265,7 +229,8 @@ fun buildStreamMethodMap(pluginObj: Any): Pair<MethodMap, MethodMap> {
     val cls = pluginObj::class.java
 
     for (listenMethod in cls.methods) {
-        if (listenMethod.parameterTypes.toList() != onListenSignature) continue
+        val paramList = listenMethod.parameterTypes.toList()
+        if (paramList != onListenSignature) continue
 
         val onListenName = listenMethod.name
         val streamName = getStreamName(onListenName) ?: continue
@@ -291,12 +256,16 @@ fun buildStreamMethodMap(pluginObj: Any): Pair<MethodMap, MethodMap> {
 
 fun getStreamName(methodName: String): String? {
     val name =
-        if (methodName.endsWith(ON_LISTEN)) {
-            methodName.substring(0, methodName.length - ON_LISTEN.length)
-        } else if (methodName.endsWith(ON_CANCEL)) {
-            methodName.substring(0, methodName.length - ON_CANCEL.length)
-        } else {
-            null
+        when {
+            methodName.endsWith(ON_LISTEN) -> methodName.substring(
+                0,
+                methodName.length - ON_LISTEN.length
+            )
+            methodName.endsWith(ON_CANCEL) -> methodName.substring(
+                0,
+                methodName.length - ON_CANCEL.length
+            )
+            else -> null
         }
 
     if (name != null && name.isNotEmpty()) {

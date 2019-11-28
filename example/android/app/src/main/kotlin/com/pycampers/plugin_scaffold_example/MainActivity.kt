@@ -1,7 +1,7 @@
 package com.pycampers.plugin_scaffold_example
 
 import android.os.Bundle
-import com.pycampers.plugin_scaffold.MainThreadStreamSink
+import com.pycampers.plugin_scaffold.MainThreadEventSink
 import com.pycampers.plugin_scaffold.createPluginScaffold
 import com.pycampers.plugin_scaffold.trySend
 import io.flutter.app.FlutterActivity
@@ -13,6 +13,11 @@ import kotlin.concurrent.timer
 
 class MyPlugin {
     fun myFancyMethod(call: MethodCall, result: Result) {
+        /*
+        Calling [result.success] / [result.error] multiple times is OK.
+        In-built protection against https://github.com/flutter/flutter/issues/29092.
+        */
+        result.success("Hello from Kotlin!")
         result.success("Hello from Kotlin!")
     }
 
@@ -55,7 +60,7 @@ class MyPlugin {
     `id` is the `hashCode` of the accompanying `StreamController` (on dart side).
     It is provided as a way to differentiate between streams.
     */
-    fun counterOnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
+    fun counterOnListen(id: Int, args: Any?, sink: MainThreadEventSink) {
         var count = 0
         timers[id] = timer(
             period = (args as Int).toLong(),
@@ -83,14 +88,14 @@ class MyPlugin {
     }
 
     /* Exceptions are piped in streams just as well */
-    fun brokenStream1OnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
+    fun brokenStream1OnListen(id: Int, args: Any?, sink: MainThreadEventSink) {
         throw IllegalArgumentException("Error from Kotlin 3!")
     }
 
     /* Again, this is required for `brokenStream1` to be accepted as a stream */
     fun brokenStream1OnCancel(id: Int, args: Any?) {}
 
-    fun brokenStream2OnListen(id: Int, args: Any?, sink: MainThreadStreamSink) {
+    fun brokenStream2OnListen(id: Int, args: Any?, sink: MainThreadEventSink) {
         trySend(sink) {
             throw IllegalArgumentException("Error from Kotlin 4!")
         }
