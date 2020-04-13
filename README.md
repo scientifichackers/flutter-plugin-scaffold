@@ -103,19 +103,14 @@ and must use `PluginScaffold.setMethodCallHandler()` instead.*
 
 First install the plugin using regular instructions on [dart pub](https://pub.dartlang.org/packages/plugin_scaffold#-installing-tab-).
 
-Next, add this line to `ios/<plugin-name>.podspec`
+Next, add the follwoing to `ios/<plugin-name>.podspec`
 
 ```
-s.dependency 'plugin_scaffold'
-```
-
-Finally, add this line to `android/build.gradle`
-
-```
-dependencies {
-    implementation project(path: ':plugin_scaffold')
-    ...
-}
+Pod::Spec.new do |s|
+  ...
+  
+  s.dependency 'plugin_scaffold'
+end
 ```
 
 ## Usage
