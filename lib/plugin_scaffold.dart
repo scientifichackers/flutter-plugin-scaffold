@@ -66,6 +66,14 @@ class PluginScaffold {
     String streamName, [
     dynamic args,
   ]) {
+    return createStreamController(channel, streamName, args).stream;
+  }
+
+  static StreamController<T> createStreamController<T>(
+    MethodChannel channel,
+    String streamName, [
+    dynamic args,
+  ]) {
     StreamController<T> controller;
     controller = StreamController<T>.broadcast(
       onListen: () async {
@@ -105,6 +113,6 @@ class PluginScaffold {
         }
       },
     );
-    return controller.stream;
+    return controller;
   }
 }
